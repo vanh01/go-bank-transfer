@@ -1,0 +1,20 @@
+version: "3"
+
+services:
+  db:
+    container_name: bank-transfer
+    image: postgres:16.1-alpine
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=bank-transfer
+      - POSTGRES_PASSWORD=123456
+    ports:
+      - '5432:5432'
+    volumes:
+      - bank-transfer:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+
+volumes:
+  bank-transfer:
+    name: bank-transfer
+    driver: local
