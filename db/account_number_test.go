@@ -92,11 +92,7 @@ func TestUpdateBalanceAccountNumber(t *testing.T) {
 	require.NotEqual(t, uuid.Nil, newAccountNumber.Id, "Id is nil")
 	require.Equal(t, newAccount.Id, newAccountNumber.AccountId, "AccountId is not match")
 
-	err = testQueries.UpdateBalanceAccountNumber(context.Background(), newAccountNumber.Id, 10)
+	gotAccountNumber, err := testQueries.UpdateBalanceAccountNumber(context.Background(), newAccountNumber.Id, 10)
 	require.Nilf(t, err, "An error occur: %s\n", err)
-
-	gotAccountNumber, err := testQueries.GetAccountNumber(context.Background(), newAccountNumber.Id)
-	require.Nilf(t, err, "An error occur: %s\n", err)
-	require.NotEqual(t, uuid.Nil, gotAccountNumber.Id, "Id is nil")
 	require.Equal(t, gotAccountNumber.Balance, newAccountNumber.Balance+10, "Balance is not match")
 }

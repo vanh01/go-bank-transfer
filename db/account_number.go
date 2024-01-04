@@ -67,9 +67,22 @@ const updateBalanceAccountNumber = `
 UPDATE bank.account_numbers
 SET balance = balance + $2
 WHERE id = $1
+RETURNING id, number, balance, account_id, created_at, updated_at, is_deleted
 `
 
-func (q *Queries) UpdateBalanceAccountNumber(ctx context.Context, id uuid.UUID, amount int) error {
-	_, err := q.DB.ExecContext(ctx, updateBalanceAccountNumber, id, amount)
-	return err
+func (q *Queries) UpdateBalanceAccountNumber(ctx context.Context, id uuid.UUID, amount int64) (AccountNumber, error) {
+	row := q.DB.QueryRowContext(ctx, updateBalanceAccountNumber, id, amount)
+	if row.Err() != nil {
+		return AccountNumber{}, row.Err()
+	}
+	var accountNumber AccountNumber
+	err := row.Scan(
+		&accountNumber.Id,
+		&accountNumber.Number,
+		&accountNumber.Balance,
+		&accountNumber.AccountId,
+		&accountNumber.CreatedAt,
+		&accountNumber.UpdatedAt,
+		&accountNumber.IsDeleted)
+	return accountNumber, err
 }
