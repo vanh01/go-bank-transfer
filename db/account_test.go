@@ -2,17 +2,17 @@ package db_test
 
 import (
 	"context"
-	"main/db"
-	"main/utils"
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
+
+	"main/db"
+	"main/utils"
 )
 
-var testQueries *db.Queries
-
 func TestCreateAccount(t *testing.T) {
-	testQueries = &db.Queries{
+	testQueries := &db.Queries{
 		DB: db.NewDB(),
 	}
 	a := db.Account{
@@ -20,19 +20,14 @@ func TestCreateAccount(t *testing.T) {
 		Password: utils.RandomString(7),
 	}
 	newAccount, err := testQueries.CreateAccount(context.Background(), a)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if newAccount.Id == uuid.Nil {
-		t.Fatal("ID is nil")
-	}
-	if newAccount.Username != a.Username || newAccount.Password != a.Password {
-		t.Fatalf("Old username:%s\nNew username%s\nOld password:%s\nNew password%s\n", a.Username, newAccount.Username, a.Password, newAccount.Password)
-	}
+	require.Nilf(t, err, "An error occur: %s\n", err)
+	require.NotEqual(t, uuid.Nil, newAccount.Id, "Id is nil")
+	require.Equal(t, newAccount.Username, a.Username, "Username is not match")
+	require.Equal(t, newAccount.Password, a.Password, "Password is not match")
 }
 
 func TestGetAccount(t *testing.T) {
-	testQueries = &db.Queries{
+	testQueries := &db.Queries{
 		DB: db.NewDB(),
 	}
 	a := db.Account{
@@ -40,23 +35,37 @@ func TestGetAccount(t *testing.T) {
 		Password: utils.RandomString(7),
 	}
 	newAccount, err := testQueries.CreateAccount(context.Background(), a)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if newAccount.Id == uuid.Nil {
-		t.Fatal("ID is nil")
-	}
-	if newAccount.Username != a.Username || newAccount.Password != a.Password {
-		t.Fatalf("Old username:%s\nNew username%s\nOld password:%s\nNew password%s\n", a.Username, newAccount.Username, a.Password, newAccount.Password)
-	}
+	require.Nilf(t, err, "An error occur: %s\n", err)
+	require.NotEqual(t, uuid.Nil, newAccount.Id, "Id is nil")
+	require.Equal(t, newAccount.Username, a.Username, "Username is not match")
+	require.Equal(t, newAccount.Password, a.Password, "Password is not match")
+
 	account, err := testQueries.GetAccount(context.Background(), newAccount.Id)
-	if err != nil {
-		t.Fatal(err)
+	require.Nilf(t, err, "An error occur: %s\n", err)
+	require.Equal(t, newAccount.Username, account.Username, "Username is not match")
+	require.Equal(t, newAccount.Password, account.Password, "Password is not match")
+}
+
+func TestGetFirstAccount(t *testing.T) {
+	testQueries := &db.Queries{
+		DB: db.NewDB(),
 	}
-	if account.Username != newAccount.Username {
-		t.Fatalf("Username is incorrect!\nCreated username:%s\nGot username%s\n", newAccount.Username, account.Username)
+
+	account, err := testQueries.GetFirstAccount(context.Background())
+	require.Nilf(t, err, "An error occur: %s\n", err)
+	require.NotEqual(t, uuid.Nil, account.Id, "Id is nil")
+	require.NotEmpty(t, account.Username, "", "Username is empty")
+	require.NotEmpty(t, account.Password, "", "Password is empty")
+}
+
+func TestGetSecondAccount(t *testing.T) {
+	testQueries := &db.Queries{
+		DB: db.NewDB(),
 	}
-	if account.Password != newAccount.Password {
-		t.Fatalf("Password is incorrect!\nCreated password:%s\nGot password%s\n", newAccount.Password, account.Password)
-	}
+
+	account, err := testQueries.GetSecondAccount(context.Background())
+	require.Nilf(t, err, "An error occur: %s\n", err)
+	require.NotEqual(t, uuid.Nil, account.Id, "Id is nil")
+	require.NotEmpty(t, account.Username, "", "Username is empty")
+	require.NotEmpty(t, account.Password, "", "Password is empty")
 }
