@@ -22,8 +22,13 @@ VALUES($1, $2)
 RETURNING id, username, password, created_at, updated_at, is_deleted
 `
 
-func (q *Queries) CreateAccount(ctx context.Context, a Account) (Account, error) {
-	row := q.DB.QueryRowContext(ctx, createAccount, a.Username, a.Password)
+type CreateAccountParams struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+func (q *Queries) CreateAccount(ctx context.Context, param CreateAccountParams) (Account, error) {
+	row := q.DB.QueryRowContext(ctx, createAccount, param.Username, param.Password)
 	if row.Err() != nil {
 		return Account{}, row.Err()
 	}

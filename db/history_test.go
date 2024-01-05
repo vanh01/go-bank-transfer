@@ -20,7 +20,7 @@ func TestCreateHistory(t *testing.T) {
 	accountNumber := createAccountNumberRandom(t, account.Id)
 	amount := utils.RandomInt(accountNumber.Balance)
 	balance := accountNumber.Balance
-	h := db.History{
+	h := db.CreateHistoryParams{
 		Balance:         accountNumber.Balance,
 		Amount:          amount,
 		AccountNumberId: accountNumber.Id,
@@ -28,7 +28,7 @@ func TestCreateHistory(t *testing.T) {
 	newHistory, err := testQueries.CreateHistory(context.Background(), h)
 
 	require.Nilf(t, err, "An error occur: %s\n", err)
-	require.NotEqual(t, uuid.Nil, newHistory.Id, "Id is nil")
+	require.NotEqual(t, uuid.Nil, newHistory.Id)
 	require.Equal(t, accountNumber.Id, newHistory.AccountNumberId)
 	require.Equal(t, amount, newHistory.Amount)
 	require.Equal(t, balance, newHistory.Balance)

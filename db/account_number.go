@@ -23,8 +23,14 @@ VALUES($1, $2, $3)
 RETURNING id, number, balance, account_id, created_at, updated_at, is_deleted
 `
 
-func (q *Queries) CreateAccountNumber(ctx context.Context, a AccountNumber) (AccountNumber, error) {
-	row := q.DB.QueryRowContext(ctx, createAccountNumber, a.Number, a.AccountId, a.Balance)
+type CreateAccountNumberParams struct {
+	Number    string    `json:"number"`
+	Balance   int64     `json:"balance"`
+	AccountId uuid.UUID `json:"account_id"`
+}
+
+func (q *Queries) CreateAccountNumber(ctx context.Context, param CreateAccountNumberParams) (AccountNumber, error) {
+	row := q.DB.QueryRowContext(ctx, createAccountNumber, param.Number, param.AccountId, param.Balance)
 	if row.Err() != nil {
 		return AccountNumber{}, row.Err()
 	}
@@ -70,8 +76,13 @@ WHERE id = $1
 RETURNING id, number, balance, account_id, created_at, updated_at, is_deleted
 `
 
-func (q *Queries) UpdateBalanceAccountNumber(ctx context.Context, id uuid.UUID, amount int64) (AccountNumber, error) {
-	row := q.DB.QueryRowContext(ctx, updateBalanceAccountNumber, id, amount)
+type UpdateBalanceAccountNumberParams struct {
+	Id     uuid.UUID `json:"id"`
+	Amount int64     `json:"amount"`
+}
+
+func (q *Queries) UpdateBalanceAccountNumber(ctx context.Context, param UpdateBalanceAccountNumberParams) (AccountNumber, error) {
+	row := q.DB.QueryRowContext(ctx, updateBalanceAccountNumber, param.Id, param.Amount)
 	if row.Err() != nil {
 		return AccountNumber{}, row.Err()
 	}

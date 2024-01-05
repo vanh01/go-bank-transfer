@@ -23,8 +23,14 @@ VALUES($2, $3, $1)
 RETURNING id, balance, amount, account_number_id, created_at, updated_at, is_deleted
 `
 
-func (q *Queries) CreateHistory(ctx context.Context, h History) (History, error) {
-	row := q.DB.QueryRowContext(ctx, createHistory, h.AccountNumberId, h.Balance, h.Amount)
+type CreateHistoryParams struct {
+	Balance         int64     `json:"balance"`
+	Amount          int64     `json:"amount"`
+	AccountNumberId uuid.UUID `json:"account_number_id"`
+}
+
+func (q *Queries) CreateHistory(ctx context.Context, param CreateHistoryParams) (History, error) {
+	row := q.DB.QueryRowContext(ctx, createHistory, param.AccountNumberId, param.Balance, param.Amount)
 	if row.Err() != nil {
 		return History{}, row.Err()
 	}

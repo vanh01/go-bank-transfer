@@ -23,8 +23,14 @@ VALUES($1, $2, $3)
 RETURNING id, "from", "to", "amount", created_at, updated_at, is_deleted
 `
 
-func (q *Queries) CreateTransfer(ctx context.Context, t Transfer) (Transfer, error) {
-	row := q.DB.QueryRowContext(ctx, createTransfer, t.From, t.To, t.Amount)
+type CreateTransferParams struct {
+	From   uuid.UUID `json:"from"`
+	To     uuid.UUID `json:"to"`
+	Amount int64     `json:"amount"`
+}
+
+func (q *Queries) CreateTransfer(ctx context.Context, param CreateTransferParams) (Transfer, error) {
+	row := q.DB.QueryRowContext(ctx, createTransfer, param.From, param.To, param.Amount)
 	if row.Err() != nil {
 		return Transfer{}, row.Err()
 	}
@@ -42,7 +48,7 @@ func (q *Queries) CreateTransfer(ctx context.Context, t Transfer) (Transfer, err
 }
 
 const getTransfer = `
-SELECT id, from, to, amount, created_at, updated_at, is_deleted
+SELECT id, "from", "to", "amount", created_at, updated_at, is_deleted
 FROM bank.transfers
 WHERE id = $1
 `
@@ -65,31 +71,37 @@ func (q *Queries) GetTransfer(ctx context.Context, id uuid.UUID) (Transfer, erro
 	return transfer, err
 }
 
+type TransferMoneyParams struct {
+	From   uuid.UUID
+	To     uuid.UUID
+	Amount int64
+}
+
 type TransferMoneyResponse struct {
 	From     AccountNumber
 	To       AccountNumber
 	Transfer Transfer
 }
 
-func (q *Queries) TransferMoney(ctx context.Context, from, to uuid.UUID, amount int64) (*TransferMoneyResponse, error) {
+func (q *Queries) TransferMoney(ctx context.Context, param TransferMoneyParams) (*TransferMoneyResponse, error) {
 	response := &TransferMoneyResponse{}
 	err := q.ExecuteTx(context.Background(), func(q *Queries) error {
 		// get from account number
-		fromAccountNumber, err := q.GetAccountNumber(context.Background(), from)
+		fromAccountNumber, err := q.GetAccountNumber(context.Background(), param.From)
 		if err != nil {
 			return err
 		}
 
 		// get to account number
-		toAccountNumber, err := q.GetAccountNumber(context.Background(), to)
+		toAccountNumber, err := q.GetAccountNumber(context.Background(), param.To)
 		if err != nil {
 			return err
 		}
 
 		// create history
-		fromHistory := History{
+		fromHistory := CreateHistoryParams{
 			Balance:         fromAccountNumber.Balance,
-			Amount:          -amount,
+			Amount:          -param.Amount,
 			AccountNumberId: fromAccountNumber.Id,
 		}
 		_, err = q.CreateHistory(context.Background(), fromHistory)
@@ -98,9 +110,9 @@ func (q *Queries) TransferMoney(ctx context.Context, from, to uuid.UUID, amount 
 		}
 
 		// create history
-		toHistory := History{
+		toHistory := CreateHistoryParams{
 			Balance:         toAccountNumber.Balance,
-			Amount:          amount,
+			Amount:          param.Amount,
 			AccountNumberId: toAccountNumber.Id,
 		}
 		_, err = q.CreateHistory(context.Background(), toHistory)
@@ -108,29 +120,50 @@ func (q *Queries) TransferMoney(ctx context.Context, from, to uuid.UUID, amount 
 			return err
 		}
 
-		// create a transfer
-		transfer := Transfer{
+		// create a createTransfer
+		createTransfer := CreateTransferParams{
 			From:   fromAccountNumber.Id,
 			To:     toAccountNumber.Id,
-			Amount: amount,
+			Amount: param.Amount,
 		}
-		newTransfer, err := q.CreateTransfer(context.Background(), transfer)
+		newTransfer, err := q.CreateTransfer(context.Background(), createTransfer)
 		if err != nil {
 			return err
 		}
 		response.Transfer = newTransfer
 
-		// update balance of first account number
-		response.From, err = q.UpdateBalanceAccountNumber(context.Background(), fromAccountNumber.Id, -amount)
-		if err != nil {
-			return err
+		updatebalance := func(ctx context.Context, from, to UpdateBalanceAccountNumberParams) (AccountNumber, AccountNumber, error) {
+			var account1, account2 AccountNumber
+			if from.Id.String() < to.Id.String() {
+				account1, err = q.UpdateBalanceAccountNumber(context.Background(), from)
+				if err != nil {
+					return account1, account2, err
+				}
+				account2, err = q.UpdateBalanceAccountNumber(context.Background(), to)
+				if err != nil {
+					return account1, account2, err
+				}
+			} else {
+				account2, err = q.UpdateBalanceAccountNumber(context.Background(), to)
+				if err != nil {
+					return account1, account2, err
+				}
+				account1, err = q.UpdateBalanceAccountNumber(context.Background(), from)
+				if err != nil {
+					return account1, account2, err
+				}
+			}
+			return account1, account2, nil
 		}
-
-		// update balance of second account number
-		response.To, err = q.UpdateBalanceAccountNumber(context.Background(), toAccountNumber.Id, amount)
-		if err != nil {
-			return err
+		updateBalanceAccountNumberParamsA := UpdateBalanceAccountNumberParams{
+			Id:     fromAccountNumber.Id,
+			Amount: -param.Amount,
 		}
+		updateBalanceAccountNumberParamsB := UpdateBalanceAccountNumberParams{
+			Id:     toAccountNumber.Id,
+			Amount: param.Amount,
+		}
+		response.From, response.To, err = updatebalance(context.Background(), updateBalanceAccountNumberParamsA, updateBalanceAccountNumberParamsB)
 
 		return nil
 	})
