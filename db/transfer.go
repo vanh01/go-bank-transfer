@@ -86,6 +86,28 @@ func (q *Queries) TransferMoney(ctx context.Context, from, to uuid.UUID, amount 
 			return err
 		}
 
+		// create history
+		fromHistory := History{
+			Balance:         fromAccountNumber.Balance,
+			Amount:          -amount,
+			AccountNumberId: fromAccountNumber.Id,
+		}
+		_, err = q.CreateHistory(context.Background(), fromHistory)
+		if err != nil {
+			return err
+		}
+
+		// create history
+		toHistory := History{
+			Balance:         toAccountNumber.Balance,
+			Amount:          amount,
+			AccountNumberId: toAccountNumber.Id,
+		}
+		_, err = q.CreateHistory(context.Background(), toHistory)
+		if err != nil {
+			return err
+		}
+
 		// create a transfer
 		transfer := Transfer{
 			From:   fromAccountNumber.Id,

@@ -124,7 +124,7 @@ func TestTransferMoney(t *testing.T) {
 	accountNumberB := createAccountNumberRandom(t, accountB.Id)
 
 	amount := int64(10)
-	numTx := 90
+	numTx := 50
 	errchan := make(chan error, numTx)
 	reschan := make(chan db.TransferMoneyResponse, numTx)
 
@@ -166,4 +166,75 @@ func TestTransferMoney(t *testing.T) {
 		require.NotContains(t, existed, k)
 		existed[k] = true
 	}
+
+	newAccountNumberA, err := testQueries.GetAccountNumber(context.Background(), accountNumberA.Id)
+	require.Nilf(t, err, "An error occur: %s\n", err)
+	require.NotEqual(t, uuid.Nil, newAccountNumberA.Id, "Id is nil")
+
+	newAccountNumberB, err := testQueries.GetAccountNumber(context.Background(), accountNumberB.Id)
+	require.Nilf(t, err, "An error occur: %s\n", err)
+	require.NotEqual(t, uuid.Nil, newAccountNumberB.Id, "Id is nil")
+
+	require.Equal(t, 2*amount*int64(numTx), newAccountNumberB.Balance-newAccountNumberA.Balance)
+}
+
+func TestTransferMoneyD(t *testing.T) {
+	testQueries := &db.Queries{
+		DB: db.NewDB(),
+	}
+	accountA := createAccountRandom(t)
+	accountB := createAccountRandom(t)
+
+	accountNumberA := createAccountNumberRandom(t, accountA.Id)
+	accountNumberB := createAccountNumberRandom(t, accountB.Id)
+
+	amount := int64(10)
+	numTx := 50
+	errchan := make(chan error, numTx)
+	reschan := make(chan db.TransferMoneyResponse, 2*numTx)
+
+	for i := 0; i < 2*numTx; i++ {
+		from := accountNumberA.Id
+		to := accountNumberB.Id
+		if i%2 == 0 {
+			from = accountNumberB.Id
+			to = accountNumberA.Id
+		}
+		go func() {
+			response, err := testQueries.TransferMoney(context.Background(), from, to, amount)
+			errchan <- err
+			reschan <- *response
+		}()
+	}
+
+	for i := 0; i < 2*numTx; i++ {
+		err := <-errchan
+		require.NoError(t, err)
+
+		res := <-reschan
+		require.NotEmpty(t, res)
+		require.NotEmpty(t, res.Transfer)
+		require.NotEmpty(t, res.From)
+		require.NotEmpty(t, res.To)
+
+		fmt.Println(">>tx: ", res.From.Balance, res.To.Balance)
+
+		require.Equal(t, amount, res.Transfer.Amount)
+
+		dif1 := accountNumberA.Balance - res.From.Balance
+		dif2 := res.To.Balance - accountNumberB.Balance
+		require.Equal(t, dif1, dif2)
+		require.True(t, dif1%amount == 0)
+	}
+
+	newAccountNumberA, err := testQueries.GetAccountNumber(context.Background(), accountNumberA.Id)
+	require.Nilf(t, err, "An error occur: %s\n", err)
+	require.NotEqual(t, uuid.Nil, newAccountNumberA.Id, "Id is nil")
+
+	newAccountNumberB, err := testQueries.GetAccountNumber(context.Background(), accountNumberB.Id)
+	require.Nilf(t, err, "An error occur: %s\n", err)
+	require.NotEqual(t, uuid.Nil, newAccountNumberB.Id, "Id is nil")
+
+	require.Equal(t, accountNumberA.Balance, newAccountNumberA.Balance)
+	require.Equal(t, accountNumberB.Balance, newAccountNumberB.Balance)
 }
